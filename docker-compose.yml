@@ -1,0 +1,38 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15
+    container_name: whispers_postgres
+    environment:
+      POSTGRES_DB: whispers_db
+      POSTGRES_USER: whispers_user
+      POSTGRES_PASSWORD: whispers_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: whispers_backend
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=whispers_user
+      - DB_PASSWORD=whispers_pass
+      - DB_NAME=whispers_db
+      - DB_SSLMODE=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    command: ["/wait-for.sh", "./main"]
+    volumes:
+      # Mount folder yang dibutuhkan saja agar hasil build tidak hilang
+      - ./uploads:/app/uploads
+      - ./qrcodes:/app/qrcodes
+      - ./tickets:/app/tickets
+
+volumes:
+  pgdata:
