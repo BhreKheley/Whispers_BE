@@ -20,6 +20,7 @@ const docTemplate = `{
     "paths": {
         "/admin/approve/{id}": {
             "patch": {
+                "description": "Mengubah status booking menjadi 'paid' dan menyimpan log pembayaran",
                 "produces": [
                     "application/json"
                 ],
@@ -38,28 +39,28 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Booking berhasil di-approve",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "ID booking tidak valid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Booking tidak ditemukan",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Gagal menyimpan perubahan",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -70,6 +71,7 @@ const docTemplate = `{
         },
         "/admin/login": {
             "post": {
+                "description": "Autentikasi admin menggunakan email dan password",
                 "consumes": [
                     "application/json"
                 ],
@@ -93,28 +95,28 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Login berhasil",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Request tidak valid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Kredensial salah",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -195,6 +197,7 @@ const docTemplate = `{
         },
         "/admin/reject/{id}": {
             "delete": {
+                "description": "Mengubah status booking menjadi 'rejected' dan menyimpan log pembayaran",
                 "produces": [
                     "application/json"
                 ],
@@ -213,28 +216,28 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Booking berhasil ditolak",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "ID booking tidak valid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Booking tidak ditemukan",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Gagal menyimpan perubahan",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -557,7 +560,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "whispersbe-production.up.railway.app",
+	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Whispers Ticketing API",

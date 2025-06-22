@@ -13,12 +13,15 @@ import (
 
 // AdminLogin godoc
 // @Summary Login admin (sementara tanpa JWT)
+// @Description Autentikasi admin menggunakan email dan password
 // @Tags Admin
 // @Accept json
 // @Produce json
 // @Param credentials body dto.AdminLoginRequest true "Email dan Password Admin"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400,401,500 {object} map[string]interface{}
+// @Success 200 {object} map[string]interface{} "Login berhasil"
+// @Failure 400 {object} map[string]interface{} "Request tidak valid"
+// @Failure 401 {object} map[string]interface{} "Kredensial salah"
+// @Failure 500 {object} map[string]interface{} "Server error"
 // @Router /admin/login [post]
 func AdminLogin(c *gin.Context) {
 	var req dto.AdminLoginRequest
@@ -48,14 +51,16 @@ func AdminLogin(c *gin.Context) {
 	})
 }
 
-
 // ApproveBooking godoc
 // @Summary Verifikasi dan approve booking
+// @Description Mengubah status booking menjadi 'paid' dan menyimpan log pembayaran
 // @Tags Admin
 // @Produce json
 // @Param id path string true "Booking ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400,404,500 {object} map[string]interface{}
+// @Success 200 {object} map[string]interface{} "Booking berhasil di-approve"
+// @Failure 400 {object} map[string]interface{} "ID booking tidak valid"
+// @Failure 404 {object} map[string]interface{} "Booking tidak ditemukan"
+// @Failure 500 {object} map[string]interface{} "Gagal menyimpan perubahan"
 // @Router /admin/approve/{id} [patch]
 func ApproveBooking(c *gin.Context) {
 	idStr := c.Param("id")
@@ -77,7 +82,6 @@ func ApproveBooking(c *gin.Context) {
 		return
 	}
 
-	// 🟢 Tambahkan log approval
 	_ = services.LogPaymentAction(booking.ID, "approved", "Approved by admin", booking.BuktiTransfer)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Booking approved"})
@@ -85,11 +89,14 @@ func ApproveBooking(c *gin.Context) {
 
 // RejectBooking godoc
 // @Summary Tolak dan reject booking
+// @Description Mengubah status booking menjadi 'rejected' dan menyimpan log pembayaran
 // @Tags Admin
 // @Produce json
 // @Param id path string true "Booking ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400,404,500 {object} map[string]interface{}
+// @Success 200 {object} map[string]interface{} "Booking berhasil ditolak"
+// @Failure 400 {object} map[string]interface{} "ID booking tidak valid"
+// @Failure 404 {object} map[string]interface{} "Booking tidak ditemukan"
+// @Failure 500 {object} map[string]interface{} "Gagal menyimpan perubahan"
 // @Router /admin/reject/{id} [delete]
 func RejectBooking(c *gin.Context) {
 	idStr := c.Param("id")
@@ -111,7 +118,6 @@ func RejectBooking(c *gin.Context) {
 		return
 	}
 
-	// 🟢 Tambahkan log reject
 	_ = services.LogPaymentAction(booking.ID, "rejected", "Ditolak oleh admin", booking.BuktiTransfer)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Booking ditolak"})

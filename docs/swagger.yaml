@@ -52,6 +52,7 @@ info:
 paths:
   /admin/approve/{id}:
     patch:
+      description: Mengubah status booking menjadi 'paid' dan menyimpan log pembayaran
       parameters:
       - description: Booking ID
         in: path
@@ -62,22 +63,22 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Booking berhasil di-approve
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: ID booking tidak valid
           schema:
             additionalProperties: true
             type: object
         "404":
-          description: Not Found
+          description: Booking tidak ditemukan
           schema:
             additionalProperties: true
             type: object
         "500":
-          description: Internal Server Error
+          description: Gagal menyimpan perubahan
           schema:
             additionalProperties: true
             type: object
@@ -88,6 +89,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: Autentikasi admin menggunakan email dan password
       parameters:
       - description: Email dan Password Admin
         in: body
@@ -99,22 +101,22 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Login berhasil
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: Request tidak valid
           schema:
             additionalProperties: true
             type: object
         "401":
-          description: Unauthorized
+          description: Kredensial salah
           schema:
             additionalProperties: true
             type: object
         "500":
-          description: Internal Server Error
+          description: Server error
           schema:
             additionalProperties: true
             type: object
@@ -170,6 +172,7 @@ paths:
       - Admin
   /admin/reject/{id}:
     delete:
+      description: Mengubah status booking menjadi 'rejected' dan menyimpan log pembayaran
       parameters:
       - description: Booking ID
         in: path
@@ -180,22 +183,22 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Booking berhasil ditolak
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: ID booking tidak valid
           schema:
             additionalProperties: true
             type: object
         "404":
-          description: Not Found
+          description: Booking tidak ditemukan
           schema:
             additionalProperties: true
             type: object
         "500":
-          description: Internal Server Error
+          description: Gagal menyimpan perubahan
           schema:
             additionalProperties: true
             type: object

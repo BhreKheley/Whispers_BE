@@ -40,7 +40,6 @@ func CreateBooking(c *gin.Context) {
 		return
 	}
 
-	// Validasi UUID kursi
 	var seatIDs []uuid.UUID
 	for _, s := range req.SeatIDs {
 		id, err := uuid.Parse(s)
@@ -51,32 +50,32 @@ func CreateBooking(c *gin.Context) {
 			})
 			return
 		}
-
-		ok, err := services.IsSeatAvailable(id)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Gagal cek ketersediaan seat",
-				"details": err.Error(),
-			})
-			return
-		}
-		if !ok {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": fmt.Sprintf("Seat dengan ID %s sudah dibooking", s),
-			})
-			return
-		}
 		seatIDs = append(seatIDs, id)
 	}
 
-	// Hitung harga
-	total, err := services.CalculateTotalHarga(seatIDs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Gagal menghitung total harga kursi",
-			"details": err.Error(),
+	tx := config.DB.Begin()
+
+	var availableSeats []models.Seat
+	if err := tx.Preload("Category").
+		Where("id IN ? AND is_active = true", seatIDs).
+		Find(&availableSeats).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal cek ketersediaan kursi"})
+		return
+	}
+
+	if len(availableSeats) != len(seatIDs) {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Beberapa kursi sudah dibooking oleh orang lain",
 		})
 		return
+	}
+
+	// Hitung total harga
+	total := 0
+	for _, seat := range availableSeats {
+		total += seat.Category.Harga
 	}
 
 	// Simpan Booking
@@ -90,59 +89,62 @@ func CreateBooking(c *gin.Context) {
 		CreatedAt:        time.Now(),
 		TotalHarga:       total,
 	}
-	if err := config.DB.Create(&booking).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Gagal menyimpan booking ke database",
-			"details": err.Error(),
-		})
+	if err := tx.Create(&booking).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan booking"})
 		return
 	}
 
-	// Simpan tiket
-	for _, seatID := range seatIDs {
+	for _, seat := range availableSeats {
 		tiketKode := services.GenerateTicketCode()
-
 		qrPath, err := services.GenerateQRCode(tiketKode)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Gagal generate QR code untuk tiket",
-				"details": err.Error(),
-			})
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal generate QR code"})
 			return
 		}
 
 		pdfPath := fmt.Sprintf("tickets/%s.pdf", tiketKode)
 		if err := services.GenerateETicketPDF(booking.NamaPemesan, tiketKode, qrPath, pdfPath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Gagal generate PDF e-ticket",
-				"details": err.Error(),
-			})
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal generate PDF tiket"})
 			return
 		}
 
 		ticket := models.Ticket{
 			ID:          uuid.New(),
 			BookingID:   booking.ID,
-			SeatID:      seatID,
+			SeatID:      seat.ID,
 			TiketKode:   tiketKode,
 			QRPath:      qrPath,
 			PDFPath:     pdfPath,
 			IsCheckedIn: false,
 		}
+		if err := tx.Create(&ticket).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal simpan tiket"})
+			return
+		}
 
-		if err := config.DB.Create(&ticket).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Gagal menyimpan tiket",
-				"details": err.Error(),
-			})
+		// Update seat jadi tidak aktif
+		if err := tx.Model(&models.Seat{}).
+			Where("id = ?", seat.ID).
+			Update("is_active", false).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal update status kursi"})
 			return
 		}
 	}
 
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyelesaikan transaksi"})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message":     "Booking berhasil disimpan",
+		"message":     "Booking berhasil",
 		"booking_id":  booking.ID,
-		"total_harga": booking.TotalHarga,
+		"total_harga": total,
 		"seat_count":  len(seatIDs),
 	})
 }

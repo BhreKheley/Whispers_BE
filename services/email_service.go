@@ -1,22 +1,45 @@
 package services
 
 import (
+	"fmt"
+	"log"
 	"net/smtp"
 	"os"
+	"path/filepath"
+
+	"github.com/BhreKheley/whispers_be/config"
+	"github.com/BhreKheley/whispers_be/models"
+	"github.com/jordan-wright/email"
 )
 
-func SendEmail(to string, subject string, body string) error {
-	from := os.Getenv("EMAIL_SENDER")
-	password := os.Getenv("EMAIL_PASSWORD")
+func SendTicketsEmail(booking models.Booking) error {
+	var tickets []models.Ticket
+	if err := config.DB.Where("booking_id = ?", booking.ID).Find(&tickets).Error; err != nil {
+		return fmt.Errorf("failed to fetch tickets: %v", err)
+	}
 
-	msg := "From: " + from + "\n" +
-		"To: " + to + "\n" +
-		"Subject: " + subject + "\n\n" +
-		body
+	e := email.NewEmail()
+	e.From = fmt.Sprintf("Whispers Tiket <%s>", os.Getenv("EMAIL_SENDER"))
+	e.To = []string{booking.EmailPemesan}
+	e.Subject = "E-Ticket Whispers 🎭"
+	e.Text = []byte(fmt.Sprintf("Halo %s,\n\nBerikut adalah e-ticket Anda. Mohon tunjukkan QR Code saat check-in di venue.\n\nSalam,\nTim Whispers", booking.NamaPemesan))
 
-	addr := "smtp.gmail.com:587" // contoh Gmail
+	// Lampirkan PDF tiket
+	for _, t := range tickets {
+		path := filepath.Join("tickets", filepath.Base(t.PDFPath))
+		if _, err := e.AttachFile(path); err != nil {
+			log.Printf("❌ Gagal attach PDF: %v\n", err)
+		}
+	}
 
-	auth := smtp.PlainAuth("", from, password, "smtp.gmail.com")
+	// Kirim email
+	smtpAddr := "smtp.gmail.com:587"
+	auth := smtp.PlainAuth("", os.Getenv("EMAIL_SENDER"), os.Getenv("EMAIL_PASSWORD"), "smtp.gmail.com")
+	err := e.Send(smtpAddr, auth)
+	if err != nil {
+		return fmt.Errorf("gagal mengirim email: %v", err)
+	}
 
-	return smtp.SendMail(addr, auth, from, []string{to}, []byte(msg))
+	log.Printf("📧 Email e-ticket terkirim ke %s\n", booking.EmailPemesan)
+	return nil
 }
