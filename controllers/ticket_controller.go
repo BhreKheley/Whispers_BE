@@ -8,6 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ValidateTicket godoc
+// @Summary Validasi tiket berdasarkan kode
+// @Tags Ticket
+// @Produce json
+// @Param code path string true "Kode Tiket"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /ticket/validate/{code} [get]
 func ValidateTicket(c *gin.Context) {
 	code := c.Param("code")
 	var ticket models.Ticket
@@ -25,27 +33,4 @@ func ValidateTicket(c *gin.Context) {
 		"message":     "Tiket valid",
 		"ticket_data": ticket,
 	})
-}
-
-func CheckInTicket(c *gin.Context) {
-	code := c.Param("code")
-	var ticket models.Ticket
-
-	if err := config.DB.Where("tiket_kode = ?", code).First(&ticket).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Tiket tidak ditemukan"})
-		return
-	}
-
-	if ticket.IsCheckedIn {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tiket sudah check-in sebelumnya"})
-		return
-	}
-
-	ticket.IsCheckedIn = true
-	if err := config.DB.Save(&ticket).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal update status check-in"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Tiket berhasil check-in"})
 }

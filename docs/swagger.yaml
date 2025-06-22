@@ -1,0 +1,370 @@
+basePath: /
+definitions:
+  dto.AdminLoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.CheckInRequest:
+    properties:
+      tiket_kode:
+        type: string
+    required:
+    - tiket_kode
+    type: object
+  dto.CreateBookingRequest:
+    properties:
+      email_pemesan:
+        type: string
+      metode_pembayaran:
+        enum:
+        - qris
+        - transfer
+        type: string
+      nama_pemesan:
+        type: string
+      no_hp:
+        type: string
+      seat_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - email_pemesan
+    - metode_pembayaran
+    - nama_pemesan
+    - no_hp
+    - seat_ids
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: kheleyome1@gmail.com
+    name: Kheleyome
+  description: Sistem pemesanan tiket teater Whispers.
+  title: Whispers Ticketing API
+  version: "1.0"
+paths:
+  /admin/approve/{id}:
+    patch:
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verifikasi dan approve booking
+      tags:
+      - Admin
+  /admin/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email dan Password Admin
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AdminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login admin (sementara tanpa JWT)
+      tags:
+      - Admin
+  /admin/logs/checkin:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Ambil log check-in
+      tags:
+      - Admin
+  /admin/logs/payment/{id}:
+    get:
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Ambil log pembayaran berdasarkan booking ID
+      tags:
+      - Admin
+  /admin/reject/{id}:
+    delete:
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Tolak dan reject booking
+      tags:
+      - Admin
+  /booking:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Data Booking
+        in: body
+        name: booking
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateBookingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Buat booking baru
+      tags:
+      - Booking
+  /booking/upload/{id}:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Booking ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File Bukti Transfer
+        in: formData
+        name: bukti_transfer
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Upload bukti transfer
+      tags:
+      - Booking
+  /seats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Ambil semua kursi + kategori
+      tags:
+      - Seat
+  /seats/booked:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Ambil seat_id yang sudah dibooking
+      tags:
+      - Seat
+  /ticket/checkin:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Kode Tiket
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CheckInRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Check-in tiket menggunakan kode QR
+      tags:
+      - Ticket
+  /ticket/validate/{code}:
+    get:
+      parameters:
+      - description: Kode Tiket
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Validasi tiket berdasarkan kode
+      tags:
+      - Ticket
+swagger: "2.0"

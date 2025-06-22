@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/BhreKheley/whispers_be/models"
-	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -14,19 +13,18 @@ import (
 var DB *gorm.DB
 
 func InitDB() {
-	_ = godotenv.Load(".env")
-
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		log.Println("No .env file found or failed to load (ignored in production)")
+		log.Fatal("DATABASE_URL is not set in environment")
 	}
 
-	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database:%v", err)
+		log.Fatal("Failed to connect to database:", err)
 	}
-	fmt.Println("Database connection established")
+
+	DB = db
+	log.Println("✅ Connected to database")
 
 	// ✅ Auto migrate semua tabel
 	err = DB.AutoMigrate(
@@ -34,6 +32,9 @@ func InitDB() {
 		&models.Seat{},
 		&models.Booking{},
 		&models.Ticket{},
+		&models.Admin{},
+		&models.CheckinLog{},
+		&models.PaymentLog{},
 	)
 	if err != nil {
 		log.Fatalf("AutoMigrate error: %v", err)

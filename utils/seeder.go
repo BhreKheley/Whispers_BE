@@ -2,61 +2,78 @@ package utils
 
 import (
 	"fmt"
+	"log"
+	"strings"
 
 	"github.com/BhreKheley/whispers_be/config"
 	"github.com/BhreKheley/whispers_be/models"
 	"github.com/google/uuid"
 )
 
+func compactUUID() uuid.UUID {
+	clean := strings.ReplaceAll(uuid.New().String(), "-", "")
+	id, _ := uuid.Parse(clean)
+	return id
+}
+
 func SeedDatabase() {
-	// Cek jika sudah ada kategori
+	db := config.DB
+
+	// Cek apakah seat category sudah ada
 	var count int64
-	config.DB.Model(&models.SeatCategory{}).Count(&count)
+	db.Model(&models.SeatCategory{}).Count(&count)
 	if count > 0 {
-		fmt.Println("🚫 Seeder sudah pernah dijalankan.")
+		log.Println("🟡 Database already seeded, skipping seeder")
 		return
 	}
 
+	log.Println("🚀 Seeding Seat Categories and Seats...")
+
 	// Buat kategori
 	firstFloor := models.SeatCategory{
-		ID:    uuid.New(),
-		Name:  "1st floor",
+		ID:    compactUUID(),
+		Name:  "1st Floor",
 		Harga: 50000,
 	}
 	secondFloor := models.SeatCategory{
-		ID:    uuid.New(),
-		Name:  "2nd floor",
+		ID:    compactUUID(),
+		Name:  "2nd Floor",
 		Harga: 35000,
 	}
-	config.DB.Create(&firstFloor)
-	config.DB.Create(&secondFloor)
+	db.Create(&firstFloor)
+	db.Create(&secondFloor)
 
-	// Buat 300 kursi A1–J30
-	rows := "ABCDEFGHIJ"
-	for _, row := range rows {
-		for seatNum := 1; seatNum <= 30; seatNum++ {
-			section := ""
-			if seatNum <= 10 {
-				section = "Left"
-			} else if seatNum <= 20 {
-				section = "Center"
-			} else {
-				section = "Right"
-			}
+	// Buat kursi
+	var seats []models.Seat
 
-			seat := models.Seat{
-				ID:         uuid.New(),
-				SeatCode:   fmt.Sprintf("%c%d", row, seatNum),
-				Section:    section,
+	// A–G = 1st Floor (30 seat per row)
+	for row := 'A'; row <= 'G'; row++ {
+		for num := 1; num <= 30; num++ {
+			code := fmt.Sprintf("%c%d", row, num)
+			seats = append(seats, models.Seat{
+				ID:         compactUUID(),
+				SeatCode:   code,
+				Section:    "1st floor",
 				IsActive:   true,
 				CategoryID: firstFloor.ID,
-			}
-			if row >= 'H' {
-				seat.CategoryID = secondFloor.ID
-			}
-			config.DB.Create(&seat)
+			})
 		}
 	}
 
-	fmt.Println("✅ Seeder selesai dijalankan")
+	// H–J = 2nd Floor
+	for row := 'H'; row <= 'J'; row++ {
+		for num := 1; num <= 30; num++ {
+			code := fmt.Sprintf("%c%d", row, num)
+			seats = append(seats, models.Seat{
+				ID:         compactUUID(),
+				SeatCode:   code,
+				Section:    "2nd floor",
+				IsActive:   true,
+				CategoryID: secondFloor.ID,
+			})
+		}
+	}
+
+	db.Create(&seats)
+	log.Println("✅ Seeding complete: 2 categories, 300 seats")
 }

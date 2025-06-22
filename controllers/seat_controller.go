@@ -8,7 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /seats → semua kursi + kategori
+// GetAllSeats godoc
+// @Summary Ambil semua kursi + kategori
+// @Tags Seat
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /seats [get]
 func GetAllSeats(c *gin.Context) {
 	var seats []models.Seat
 
@@ -21,6 +27,13 @@ func GetAllSeats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"seats": seats})
 }
 
+// GetBookedSeatIDs godoc
+// @Summary Ambil seat_id yang sudah dibooking
+// @Tags Seat
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /seats/booked [get]
 func GetBookedSeatIDs(c *gin.Context) {
 	var tickets []models.Ticket
 	err := config.DB.Select("seat_id").Find(&tickets).Error

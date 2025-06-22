@@ -6,18 +6,28 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
+
+	"github.com/swaggo/gin-swagger"
+	"github.com/swaggo/files"
 
 	"github.com/BhreKheley/whispers_be/config"
 	"github.com/BhreKheley/whispers_be/routes"
 	"github.com/BhreKheley/whispers_be/utils"
+
+	_ "github.com/BhreKheley/whispers_be/docs" // docs init (penting!)
 )
 
+
+// @title Whispers Ticketing API
+// @version 1.0
+// @description Sistem pemesanan tiket teater Whispers.
+// @contact.name Kheleyome
+// @contact.email kheleyome1@gmail.com
+// @host localhost:8080
+// @BasePath /
 func main() {
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found or failed to load (ignored in production)")
-	}
+	// Load environment variables
+	config.LoadEnv()
 
 	// Init database
 	config.InitDB()
@@ -38,6 +48,9 @@ func main() {
 
 	// Register routes
 	routes.SetupRoutes(r)
+
+	// Swagger
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Run server
 	port := os.Getenv("PORT")

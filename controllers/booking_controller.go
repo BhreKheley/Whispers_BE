@@ -1,134 +1,223 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
 	"time"
 
 	"github.com/BhreKheley/whispers_be/config"
+	"github.com/BhreKheley/whispers_be/dto"
 	"github.com/BhreKheley/whispers_be/models"
 	"github.com/BhreKheley/whispers_be/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-type TicketInput struct {
-	SeatID         uuid.UUID `json:"seat_id"`
-	NamaPemegang   string    `json:"nama_pemegang"`
-	EmailPemegang  string    `json:"email_pemegang"`
-	HpPemegang     string    `json:"hp_pemegang"`
+// CreateBooking godoc
+// @Summary Buat booking baru
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param booking body dto.CreateBookingRequest true "Data Booking"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400,500 {object} map[string]interface{}
+// @Router /booking [post]
+func CreateBooking(c *gin.Context) {
+	var req dto.CreateBookingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Format JSON tidak valid",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	if req.NamaPemesan == "" || req.EmailPemesan == "" || req.NoHP == "" || req.MetodePembayaran == "" || len(req.SeatIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Semua field wajib diisi: nama_pemesan, email_pemesan, no_hp, metode_pembayaran, dan seat_ids",
+		})
+		return
+	}
+
+	// Validasi UUID kursi
+	var seatIDs []uuid.UUID
+	for _, s := range req.SeatIDs {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "ID seat tidak valid (bukan UUID)",
+				"details": fmt.Sprintf("Seat ID: %s, Error: %s", s, err.Error()),
+			})
+			return
+		}
+
+		ok, err := services.IsSeatAvailable(id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Gagal cek ketersediaan seat",
+				"details": err.Error(),
+			})
+			return
+		}
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Seat dengan ID %s sudah dibooking", s),
+			})
+			return
+		}
+		seatIDs = append(seatIDs, id)
+	}
+
+	// Hitung harga
+	total, err := services.CalculateTotalHarga(seatIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Gagal menghitung total harga kursi",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Simpan Booking
+	booking := models.Booking{
+		ID:               uuid.New(),
+		NamaPemesan:      req.NamaPemesan,
+		EmailPemesan:     req.EmailPemesan,
+		NoHP:             req.NoHP,
+		MetodePembayaran: req.MetodePembayaran,
+		Status:           "pending",
+		CreatedAt:        time.Now(),
+		TotalHarga:       total,
+	}
+	if err := config.DB.Create(&booking).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Gagal menyimpan booking ke database",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Simpan tiket
+	for _, seatID := range seatIDs {
+		tiketKode := services.GenerateTicketCode()
+
+		qrPath, err := services.GenerateQRCode(tiketKode)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Gagal generate QR code untuk tiket",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		pdfPath := fmt.Sprintf("tickets/%s.pdf", tiketKode)
+		if err := services.GenerateETicketPDF(booking.NamaPemesan, tiketKode, qrPath, pdfPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Gagal generate PDF e-ticket",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		ticket := models.Ticket{
+			ID:          uuid.New(),
+			BookingID:   booking.ID,
+			SeatID:      seatID,
+			TiketKode:   tiketKode,
+			QRPath:      qrPath,
+			PDFPath:     pdfPath,
+			IsCheckedIn: false,
+		}
+
+		if err := config.DB.Create(&ticket).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Gagal menyimpan tiket",
+				"details": err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":     "Booking berhasil disimpan",
+		"booking_id":  booking.ID,
+		"total_harga": booking.TotalHarga,
+		"seat_count":  len(seatIDs),
+	})
 }
 
-func CreateBooking(c *gin.Context) {
-	var booking models.Booking
-	var tiketInputs []TicketInput
+// UploadBuktiTransfer godoc
+// @Summary Upload bukti transfer
+// @Tags Booking
+// @Accept multipart/form-data
+// @Produce json
+// @Param id path string true "Booking ID"
+// @Param bukti_transfer formData file true "File Bukti Transfer"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400,404,500 {object} map[string]interface{}
+// @Router /booking/upload/{id} [post]
+func UploadBuktiTransfer(c *gin.Context) {
+	bookingID := c.Param("id")
+	id, err := uuid.Parse(bookingID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Booking ID tidak valid (UUID expected)",
+			"details": err.Error(),
+		})
+		return
+	}
 
-	// Ambil data pemesan
-	booking.ID = uuid.New()
-	booking.NamaPemesan = c.PostForm("nama_pemesan")
-	booking.EmailPemesan = c.PostForm("email_pemesan")
-	booking.NoHP = c.PostForm("no_hp")
-	booking.MetodePembayaran = c.PostForm("metode_pembayaran")
-	booking.Status = "pending"
-	booking.CreatedAt = time.Now()
-
-	// Upload bukti transfer
 	file, err := c.FormFile("bukti_transfer")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bukti transfer wajib diunggah"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Bukti transfer tidak ditemukan dalam request",
+			"details": err.Error(),
+		})
 		return
 	}
-	filename := fmt.Sprintf("%s_%s", booking.ID.String(), file.Filename)
+
+	if !services.IsValidPaymentProof(file) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Format bukti transfer tidak valid. Hanya mendukung jpg, png, pdf",
+		})
+		return
+	}
+
+	filename := fmt.Sprintf("%s_%s", id.String(), file.Filename)
 	filePath := filepath.Join("uploads", filename)
 	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file bukti"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Gagal menyimpan file bukti transfer",
+			"details": err.Error(),
+		})
 		return
 	}
+
+	var booking models.Booking
+	if err := config.DB.First(&booking, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "Booking tidak ditemukan",
+			"details": err.Error(),
+		})
+		return
+	}
+
 	booking.BuktiTransfer = filename
-
-	// Ambil dan parse tiket JSON
-	tiketJson := c.PostForm("tickets")
-	if err := json.Unmarshal([]byte(tiketJson), &tiketInputs); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tiket tidak valid"})
+	booking.Status = "waiting-verification"
+	if err := config.DB.Save(&booking).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Gagal menyimpan perubahan pada booking",
+			"details": err.Error(),
+		})
 		return
 	}
 
-	// Validasi seat dan hitung total harga
-	var totalHarga int
-	var tiketList []models.Ticket
-	var seatIDs []uuid.UUID
+	_ = services.LogPaymentAction(booking.ID, "uploaded", "User uploaded proof", filename)
 
-	for _, t := range tiketInputs {
-		// Validasi seat belum dibooking
-		available, err := services.IsSeatAvailable(t.SeatID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengecek seat"})
-			return
-		}
-		if !available {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Seat %s sudah dibooking", t.SeatID)})
-			return
-		}
-		seatIDs = append(seatIDs, t.SeatID)
-	}
-
-	totalHarga, err = services.CalculateTotalHarga(seatIDs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghitung total harga"})
-		return
-	}
-	booking.TotalHarga = totalHarga
-
-	// Simpan booking
-	if err := config.DB.Create(&booking).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan booking"})
-		return
-	}
-
-	// Proses dan simpan tiket
-	for _, t := range tiketInputs {
-		ticketCode := services.GenerateTicketCode(t.NamaPemegang)
-
-		qrPath, err := services.GenerateQRCode(ticketCode)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal generate QR code"})
-			return
-		}
-
-		pdfPath := fmt.Sprintf("tickets/%s.pdf", ticketCode)
-		err = services.GenerateETicketPDF(t.NamaPemegang, ticketCode, qrPath, pdfPath)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal generate PDF e-ticket"})
-			return
-		}
-
-		tiket := models.Ticket{
-			ID:             uuid.New(),
-			BookingID:      booking.ID,
-			SeatID:         t.SeatID,
-			NamaPemegang:   t.NamaPemegang,
-			EmailPemegang:  t.EmailPemegang,
-			HPPemegang:     t.HpPemegang,
-			TiketKode:      ticketCode,
-			QRPath:         qrPath,
-			PDFPath:        pdfPath,
-			IsCheckedIn:    false,
-		}
-		tiketList = append(tiketList, tiket)
-
-		if err := config.DB.Create(&tiket).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan tiket"})
-			return
-		}
-	}
-
-	// Sukses
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Booking berhasil disimpan",
-		"booking_id":    booking.ID,
-		"jumlah_tiket":  len(tiketList),
-		"total_harga":   booking.TotalHarga,
+		"message":    "Bukti transfer berhasil diupload",
+		"booking_id": booking.ID,
+		"file":       filename,
 	})
 }
