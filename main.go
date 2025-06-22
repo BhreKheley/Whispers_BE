@@ -7,16 +7,16 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/swaggo/gin-swagger"
-	"github.com/swaggo/files"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/BhreKheley/whispers_be/config"
+	"github.com/BhreKheley/whispers_be/docs"
 	"github.com/BhreKheley/whispers_be/routes"
 	"github.com/BhreKheley/whispers_be/utils"
 
 	_ "github.com/BhreKheley/whispers_be/docs" // docs init (penting!)
 )
-
 
 // @title Whispers Ticketing API
 // @version 1.0
@@ -31,6 +31,22 @@ func main() {
 
 	// Init database
 	config.InitDB()
+
+	// Setup Swagger info
+	docs.SwaggerInfo.Title = "Whispers Ticketing API"
+	docs.SwaggerInfo.Description = `API untuk sistem pemesanan tiket teater Whispers.
+
+📌 Fitur Utama:
+- 🎟 Pemesanan kursi teater (300 kursi, 2 lantai)
+- 📤 Upload bukti transfer
+- 🧾 PDF e-ticket otomatis
+- 📲 QR Code untuk check-in
+- 🧑‍💻 Dashboard admin verifikasi
+`
+	docs.SwaggerInfo.Version = "1.0.0"
+	docs.SwaggerInfo.Host = "whispersbe-production.up.railway.app"
+	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.Schemes = []string{"https"}
 
 	// Panggil Seeder
 	utils.SeedDatabase()
