@@ -288,7 +288,7 @@
                 }
             }
         },
-        "/booking/upload/{id}": {
+        "/booking/{id}/upload": {
             "post": {
                 "consumes": [
                     "multipart/form-data"

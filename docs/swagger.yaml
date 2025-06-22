@@ -237,7 +237,7 @@ paths:
       summary: Buat booking baru
       tags:
       - Booking
-  /booking/upload/{id}:
+  /booking/{id}/upload:
     post:
       consumes:
       - multipart/form-data
