@@ -158,7 +158,7 @@ func CreateBooking(c *gin.Context) {
 // @Param bukti_transfer formData file true "File Bukti Transfer"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400,404,500 {object} map[string]interface{}
-// @Router /booking/upload/{id} [post]
+// @Router /booking/{id}/upload [post]
 func UploadBuktiTransfer(c *gin.Context) {
 	bookingID := c.Param("id")
 	id, err := uuid.Parse(bookingID)
