@@ -8,7 +8,7 @@ import (
 func SetupRoutes(r *gin.Engine) {
 	// ===== 🎫 BOOKING =====
 	r.POST("/booking", controllers.CreateBooking)                  // Booking baru
-	r.POST("/booking/:id/upload", controllers.UploadBuktiTransfer) // Upload bukti transfer
+	r.POST("/booking/upload/:id", controllers.UploadBuktiTransfer) // Upload bukti transfer
 
 	// ===== 👨‍💼 ADMIN LOGIN + VERIFIKASI =====
 	r.POST("/admin/login", controllers.AdminLogin)                 // Login admin
